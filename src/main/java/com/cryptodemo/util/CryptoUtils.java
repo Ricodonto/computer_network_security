@@ -138,6 +138,24 @@ public final class CryptoUtils {
     }
 
     // ──────────────────────────────────────────────
+    //  Hex Encoding
+    // ──────────────────────────────────────────────
+
+    /**
+     * Converts a byte array to a lowercase hexadecimal string.
+     *
+     * @param data the bytes to encode
+     * @return hex string (e.g. "a1b2c3...")
+     */
+    public static String toHex(byte[] data) {
+        StringBuilder sb = new StringBuilder(data.length * 2);
+        for (byte b : data) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    // ──────────────────────────────────────────────
     //  Base64 Helpers
     // ──────────────────────────────────────────────
 
