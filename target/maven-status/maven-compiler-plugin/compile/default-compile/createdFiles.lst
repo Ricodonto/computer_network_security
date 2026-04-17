@@ -1,4 +1,6 @@
+application.properties
 com\cryptodemo\controller\SenderController.class
 com\cryptodemo\controller\ReceiverController.class
 com\cryptodemo\CryptoFlowApplication.class
 com\cryptodemo\util\CryptoUtils.class
+static\index.html
