@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive cryptographic flow demonstrating message authentication and confidentiality with SHA-256 and AES encryption.">
+    <title>CryptoFlow — Message Authentication &amp; Confidentiality</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════
+           DESIGN SYSTEM & TOKENS
+           ═══════════════════════════════════════════════ */
+        :root {
+            /* Core palette */
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-input: rgba(15, 23, 42, 0.8);
+            --bg-input-focus: rgba(15, 23, 42, 1);
+
+            /* Accent colors */
+            --accent-sender: #3b82f6;
+            --accent-sender-glow: rgba(59, 130, 246, 0.3);
+            --accent-sender-light: #60a5fa;
+            --accent-network: #f59e0b;
+            --accent-network-glow: rgba(245, 158, 11, 0.3);
+            --accent-network-light: #fbbf24;
+            --accent-receiver: #8b5cf6;
+            --accent-receiver-glow: rgba(139, 92, 246, 0.3);
+            --accent-receiver-light: #a78bfa;
+
+            /* Status */
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --success-border: rgba(16, 185, 129, 0.4);
+            --fail: #ef4444;
+            --fail-bg: rgba(239, 68, 68, 0.1);
+            --fail-border: rgba(239, 68, 68, 0.4);
+
+            /* Text */
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            /* Borders */
+            --border-subtle: rgba(148, 163, 184, 0.1);
+            --border-medium: rgba(148, 163, 184, 0.2);
+
+            /* Spacing */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            /* Transitions */
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ═══════════════════════════════════════════════
+           RESET & BASE
+           ═══════════════════════════════════════════════ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse 800px 600px at 20% 30%, rgba(59, 130, 246, 0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 600px 500px at 80% 60%, rgba(139, 92, 246, 0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 400px at 50% 80%, rgba(245, 158, 11, 0.04) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ═══════════════════════════════════════════════
+           LAYOUT
+           ═══════════════════════════════════════════════ */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+
+        /* ═══════════════════════════════════════════════
+           HEADER
+           ═══════════════════════════════════════════════ */
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .header__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-sender-light);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .header__badge svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .header h1 {
+            font-size: clamp(28px, 4vw, 42px);
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        /* ═══════════════════════════════════════════════
+           FLOW GRID
+           ═══════════════════════════════════════════════ */
+        .flow-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 0;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .flow-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════
+           PANEL (shared)
+           ═══════════════════════════════════════════════ */
+        .panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color var(--transition-normal);
+        }
+
+        .panel:hover {
+            border-color: var(--border-medium);
+        }
+
+        /* Accent glow at top of each panel */
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        .panel--sender::before { background: linear-gradient(90deg, var(--accent-sender), var(--accent-sender-light)); }
+        .panel--network::before { background: linear-gradient(90deg, var(--accent-network), var(--accent-network-light)); }
+        .panel--receiver::before { background: linear-gradient(90deg, var(--accent-receiver), var(--accent-receiver-light)); }
+
+        .panel__header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .panel__icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .panel--sender .panel__icon {
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-sender-light);
+        }
+
+        .panel--network .panel__icon {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--accent-network-light);
+        }
+
+        .panel--receiver .panel__icon {
+            background: rgba(139, 92, 246, 0.12);
+            color: var(--accent-receiver-light);
+        }
+
+        .panel__icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .panel__title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .panel__subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ═══════════════════════════════════════════════
+           FORM ELEMENTS
+           ═══════════════════════════════════════════════ */
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 13px;
+            transition: all var(--transition-fast);
+            outline: none;
+        }
+
+        .field input:focus,
+        .field textarea:focus {
+            background: var(--bg-input-focus);
+            border-color: var(--accent-sender);
+            box-shadow: 0 0 0 3px var(--accent-sender-glow);
+        }
+
+        .panel--receiver .field input:focus,
+        .panel--receiver .field textarea:focus {
+            border-color: var(--accent-receiver);
+            box-shadow: 0 0 0 3px var(--accent-receiver-glow);
+        }
+
+        .field textarea {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+        }
+
+        /* ═══════════════════════════════════════════════
+           BUTTONS
+           ═══════════════════════════════════════════════ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px 20px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(255,255,255,0.1), transparent);
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .btn:hover::after {
+            opacity: 1;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn--sender {
+            background: linear-gradient(135deg, var(--accent-sender), #2563eb);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--accent-sender-glow);
+        }
+
+        .btn--sender:hover {
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+        }
+
+        .btn--receiver {
+            background: linear-gradient(135deg, var(--accent-receiver), #7c3aed);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--accent-receiver-glow);
+        }
+
+        .btn--receiver:hover {
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45);
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Spinner */
+        .btn .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ═══════════════════════════════════════════════
+           OUTPUT AREAS
+           ═══════════════════════════════════════════════ */
+        .output-area {
+            margin-top: 20px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            min-height: 50px;
+            display: none;
+            animation: fadeSlideIn 0.3s ease-out;
+        }
+
+        .output-area.visible {
+            display: block;
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .output-area__label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .output-area__value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        /* ═══════════════════════════════════════════════
+           NETWORK / MIDDLEMAN PANEL
+           ═══════════════════════════════════════════════ */
+        .connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 12px;
+            position: relative;
+        }
+
+        @media (max-width: 1024px) {
+            .connector {
+                padding: 0;
+            }
+        }
+
+        .connector__line {
+            width: 2px;
+            height: 40px;
+            background: linear-gradient(180deg, var(--accent-sender) 0%, var(--accent-network) 100%);
+            opacity: 0.4;
+            border-radius: 1px;
+        }
+
+        .connector__line--bottom {
+            background: linear-gradient(180deg, var(--accent-network) 0%, var(--accent-receiver) 100%);
+        }
+
+        @media (max-width: 1024px) {
+            .connector__line {
+                display: none;
+            }
+        }
+
+        .network-panel {
+            width: 320px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color var(--transition-normal);
+        }
+
+        .network-panel:hover {
+            border-color: var(--border-medium);
+        }
+
+        .network-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-network), var(--accent-network-light));
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        @media (max-width: 1024px) {
+            .network-panel {
+                width: 100%;
+            }
+        }
+
+        .network-panel textarea {
+            width: 100%;
+            min-height: 140px;
+            padding: 12px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--accent-network-light);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+            transition: all var(--transition-fast);
+        }
+
+        .network-panel textarea:focus {
+            background: var(--bg-input-focus);
+            border-color: var(--accent-network);
+            box-shadow: 0 0 0 3px var(--accent-network-glow);
+        }
+
+        .tamper-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--accent-network);
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .tamper-hint svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        /* ═══════════════════════════════════════════════
+           VERIFICATION RESULT
+           ═══════════════════════════════════════════════ */
+        .result-banner {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            margin-top: 20px;
+            animation: fadeSlideIn 0.4s ease-out;
+        }
+
+        .result-banner.visible {
+            display: flex;
+        }
+
+        .result-banner--pass {
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+        }
+
+        .result-banner--fail {
+            background: var(--fail-bg);
+            border: 1px solid var(--fail-border);
+        }
+
+        .result-banner__icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .result-banner--pass .result-banner__icon {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .result-banner--fail .result-banner__icon {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--fail);
+        }
+
+        .result-banner__icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .result-banner__text {
+            flex: 1;
+        }
+
+        .result-banner__title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .result-banner--pass .result-banner__title { color: var(--success); }
+        .result-banner--fail .result-banner__title { color: var(--fail); }
+
+        .result-banner__detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ═══════════════════════════════════════════════
+           STEP INDICATORS
+           ═══════════════════════════════════════════════ */
+        .steps {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .step-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .step-chip__num {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .panel--sender .step-chip__num {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-sender-light);
+        }
+
+        .panel--receiver .step-chip__num {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent-receiver-light);
+        }
+
+        /* ═══════════════════════════════════════════════
+           PULSE ANIMATION (loading states)
+           ═══════════════════════════════════════════════ */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- ──── Header ──── -->
+        <header class="header">
+            <div class="header__badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                SHA-256 + AES Demo
+            </div>
+            <h1>CryptoFlow</h1>
+            <p>Interactive message authentication &amp; confidentiality. Send encrypted messages, tamper with them in transit, and watch the verification catch it.</p>
+        </header>
+
+        <!-- ──── Flow Grid ──── -->
+        <div class="flow-grid">
+
+            <!-- ═══════ SENDER PANEL ═══════ -->
+            <section class="panel panel--sender" id="sender-panel">
+                <div class="panel__header">
+                    <div class="panel__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="panel__title">Sender</div>
+                        <div class="panel__subtitle">Authenticate &amp; Encrypt</div>
+                    </div>
+                </div>
+
+                <div class="steps">
+                    <span class="step-chip"><span class="step-chip__num">1</span>Hash M‖S</span>
+                    <span class="step-chip"><span class="step-chip__num">2</span>Append hash</span>
+                    <span class="step-chip"><span class="step-chip__num">3</span>AES encrypt</span>
+                </div>
+
+                <div class="field">
+                    <label for="sender-message">Message (M)</label>
+                    <textarea id="sender-message" rows="3" placeholder="Enter your secret message..."></textarea>
+                </div>
+                <div class="field">
+                    <label for="sender-secret">Shared Secret (S)</label>
+                    <input type="text" id="sender-secret" placeholder="e.g. mySharedSecret123">
+                </div>
+                <div class="field">
+                    <label for="sender-key">Symmetric Key (K)</label>
+                    <input type="text" id="sender-key" placeholder="e.g. myEncryptionKey">
+                </div>
+
+                <button class="btn btn--sender" id="btn-send">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    Encrypt &amp; Send
+                </button>
+
+                <div class="output-area" id="sender-output">
+                    <div class="output-area__label">Generated Ciphertext (Base64)</div>
+                    <div class="output-area__value" id="sender-ciphertext"></div>
+                </div>
+            </section>
+
+            <!-- ═══════ NETWORK / MIDDLEMAN ═══════ -->
+            <div class="connector">
+                <div class="connector__line"></div>
+
+                <section class="network-panel" id="network-panel">
+                    <div class="panel__header">
+                        <div class="panel__icon" style="background: rgba(245,158,11,0.12); color: var(--accent-network-light);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="panel__title">Network</div>
+                            <div class="panel__subtitle">Man-in-the-Middle</div>
+                        </div>
+                    </div>
+
+                    <textarea id="network-data" placeholder="Ciphertext will appear here after sending..."></textarea>
+
+                    <div class="tamper-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Edit the ciphertext above to simulate tampering
+                    </div>
+                </section>
+
+                <div class="connector__line connector__line--bottom"></div>
+            </div>
+
+            <!-- ═══════ RECEIVER PANEL ═══════ -->
+            <section class="panel panel--receiver" id="receiver-panel">
+                <div class="panel__header">
+                    <div class="panel__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="panel__title">Receiver</div>
+                        <div class="panel__subtitle">Decrypt &amp; Verify</div>
+                    </div>
+                </div>
+
+                <div class="steps">
+                    <span class="step-chip"><span class="step-chip__num">1</span>AES decrypt</span>
+                    <span class="step-chip"><span class="step-chip__num">2</span>Extract M &amp; hash</span>
+                    <span class="step-chip"><span class="step-chip__num">3</span>Recompute &amp; compare</span>
+                </div>
+
+                <div class="field">
+                    <label for="receiver-secret">Shared Secret (S)</label>
+                    <input type="text" id="receiver-secret" placeholder="Must match sender's secret">
+                </div>
+                <div class="field">
+                    <label for="receiver-key">Symmetric Key (K)</label>
+                    <input type="text" id="receiver-key" placeholder="Must match sender's key">
+                </div>
+
+                <button class="btn btn--receiver" id="btn-receive">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Process Received Data
+                </button>
+
+                <!-- Result banner -->
+                <div class="result-banner" id="result-banner">
+                    <div class="result-banner__icon" id="result-icon"></div>
+                    <div class="result-banner__text">
+                        <div class="result-banner__title" id="result-title"></div>
+                        <div class="result-banner__detail" id="result-detail"></div>
+                    </div>
+                </div>
+
+                <div class="output-area" id="receiver-output">
+                    <div class="output-area__label">Decrypted Message</div>
+                    <div class="output-area__value" id="receiver-message"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         JAVASCRIPT
+         ═══════════════════════════════════════════════ -->
+    <script>
+        const $ = id => document.getElementById(id);
+
+        // ─── SVG icons ───
+        const ICON_PASS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const ICON_FAIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+        // ─── Helpers ───
+        function setLoading(btn, loading) {
+            if (loading) {
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = `<span class="spinner"></span> Processing...`;
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        async function apiPost(url, body) {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            return resp.json();
+        }
+
+        // ─── SEND ───
+        $('btn-send').addEventListener('click', async () => {
+            const message = $('sender-message').value.trim();
+            const secret  = $('sender-secret').value.trim();
+            const key     = $('sender-key').value.trim();
+
+            if (!message || !secret || !key) {
+                alert('Please fill in all Sender fields.');
+                return;
+            }
+
+            const btn = $('btn-send');
+            setLoading(btn, true);
+
+            try {
+                const data = await apiPost('/api/send', { message, secret, key });
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                // Show ciphertext in sender output
+                $('sender-ciphertext').textContent = data.ciphertext;
+                $('sender-output').classList.add('visible');
+
+                // Push to network panel
+                $('network-data').value = data.ciphertext;
+
+                // Reset receiver result
+                $('result-banner').classList.remove('visible');
+                $('result-banner').className = 'result-banner';
+                $('receiver-output').classList.remove('visible');
+
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            } finally {
+                setLoading(btn, false);
+            }
+        });
+
+        // ─── RECEIVE ───
+        $('btn-receive').addEventListener('click', async () => {
+            const ciphertext = $('network-data').value.trim();
+            const secret     = $('receiver-secret').value.trim();
+            const key        = $('receiver-key').value.trim();
+
+            if (!ciphertext) {
+                alert('No ciphertext to process. Send a message first.');
+                return;
+            }
+            if (!secret || !key) {
+                alert('Please fill in both Secret and Key for the receiver.');
+                return;
+            }
+
+            const btn = $('btn-receive');
+            setLoading(btn, true);
+
+            try {
+                const data = await apiPost('/api/receive', { ciphertext, secret, key });
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                const banner = $('result-banner');
+                const icon   = $('result-icon');
+                const title  = $('result-title');
+                const detail = $('result-detail');
+
+                // Reset classes
+                banner.className = 'result-banner visible';
+
+                if (data.verified) {
+                    banner.classList.add('result-banner--pass');
+                    icon.innerHTML = ICON_PASS;
+                    title.textContent = '✓ Authentication PASSED';
+                } else {
+                    banner.classList.add('result-banner--fail');
+                    icon.innerHTML = ICON_FAIL;
+                    title.textContent = '✗ Authentication FAILED';
+                }
+
+                detail.textContent = data.detail;
+
+                // Show decrypted message
+                if (data.message) {
+                    $('receiver-message').textContent = data.message;
+                    $('receiver-output').classList.add('visible');
+                } else {
+                    $('receiver-output').classList.remove('visible');
+                }
+
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            } finally {
+                setLoading(btn, false);
+            }
+        });
+    </script>
+</body>
+</html>
